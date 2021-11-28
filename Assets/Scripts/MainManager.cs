@@ -3,31 +3,61 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
-
+using System.IO;
 public class MainManager : MonoBehaviour
 {
+    static public MainManager Instance;
     public Brick BrickPrefab;
     public int LineCount = 6;
     public Rigidbody Ball;
-    public Text BestResult;
     public Text ScoreText;
+    public Text bestScore;
     public GameObject GameOverText;
-    public InputField nname;
+    public InputField playerName;
     private bool m_Started = false;
     private int m_Points;
-    private int b_Points=0;
+    public Button submit;
     private bool m_GameOver = false;
-    private string b_name;
+    static private int b_points;
+    static private string b_name;
     private string m_name;
-    public Button button;
+    public Paddle paddlePlayer;
+
+    [System.Serializable]
+    public class SaveClass
+    {
+       public int b_points;
+       public string b_name;
+    }
     // Start is called before the first frame update
     void Start()
     {
-        const float step = 0.6f;
-        int perLine = Mathf.FloorToInt(4.0f / step);
+        string path = Application.persistentDataPath + "/savefile.json";
+        if (File.Exists(path))
+        {
+            string json = File.ReadAllText(path);
+            SaveClass data = JsonUtility.FromJson<SaveClass>(json);
+
+            b_points = data.b_points;
+            b_name = data.b_name;
+        }
+        Debug.Log(Application.persistentDataPath);
         m_Points = 0;
         Time.timeScale = 0;
-        int[] pointCountArray = new [] {1,1,2,2,5,5};
+        paddlePlayer = paddlePlayer.gameObject.GetComponent<Paddle>();
+        paddlePlayer.enabled = false;
+        AddPoint(m_Points);
+    }
+    public void SubmitName()
+    {
+        Time.timeScale = 1;
+        m_name = playerName.text;
+        submit.gameObject.SetActive(false);
+        playerName.gameObject.SetActive(false);
+        const float step = 0.6f;
+        int perLine = Mathf.FloorToInt(4.0f / step);
+
+        int[] pointCountArray = new[] { 1, 1, 2, 2, 5, 5 };
         for (int i = 0; i < LineCount; ++i)
         {
             for (int x = 0; x < perLine; ++x)
@@ -38,18 +68,13 @@ public class MainManager : MonoBehaviour
                 brick.onDestroyed.AddListener(AddPoint);
             }
         }
-    }
-    public void SubmitName()
-    {
-        m_name = nname.text;
-        nname.gameObject.SetActive(false);
-        button.gameObject.SetActive(false);
-        Time.timeScale = 1;
+        paddlePlayer.enabled = true;
     }
     private void Update()
     {
         if (!m_Started)
         {
+            
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 m_Started = true;
@@ -63,6 +88,7 @@ public class MainManager : MonoBehaviour
         }
         else if (m_GameOver)
         {
+            Time.timeScale = 0;
             if (Input.GetKeyDown(KeyCode.Space))
             {
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
@@ -72,21 +98,24 @@ public class MainManager : MonoBehaviour
 
     void AddPoint(int point)
     {
+
         m_Points += point;
-        
-        if (m_Points > b_Points)
+        if (m_Points>b_points)
         {
-            b_Points = m_Points;
+            b_points = m_Points;
             b_name = m_name;
-            BestResult.text = $"Best Score: {b_Points} Name: {b_name}";
         }
-           BestResult.text = $"Best Score: {b_Points} Name: {b_name}";
-        ScoreText.text = $"Score : {b_Points}";
-        
+        ScoreText.text = $"Score : {m_Points}";
+        bestScore.text = $"Best Score :{b_points} Name : {b_name}";
     }
 
     public void GameOver()
     {
+        SaveClass save = new SaveClass();
+        save.b_name = b_name;
+        save.b_points = b_points;
+        string json = JsonUtility.ToJson(save);
+        File.WriteAllText(Application.persistentDataPath + "/savefile.json", json);
         m_GameOver = true;
         GameOverText.SetActive(true);
     }
